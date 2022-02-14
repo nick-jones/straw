@@ -5,8 +5,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/nick-jones/straw"
 	"github.com/stretchr/testify/assert"
-	"github.com/uw-labs/straw"
 )
 
 func TestWalk(t *testing.T) {

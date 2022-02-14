@@ -15,15 +15,15 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/nick-jones/straw"
 	"github.com/pkg/sftp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/uw-labs/straw"
 	"golang.org/x/crypto/ssh"
 
-	_ "github.com/uw-labs/straw/gcs"
-	_ "github.com/uw-labs/straw/s3"
-	_ "github.com/uw-labs/straw/sftp"
+	_ "github.com/nick-jones/straw/gcs"
+	_ "github.com/nick-jones/straw/s3"
+	_ "github.com/nick-jones/straw/sftp"
 )
 
 type fsTester struct {
@@ -733,7 +733,7 @@ func TestSFTPFS(t *testing.T) {
 
 	encodedKey := base64.URLEncoding.EncodeToString(sshKey.Marshal())
 
-	sftpfs, err := straw.Open("sftp://test:tiger@localhost:9922/?host_key="+encodedKey)
+	sftpfs, err := straw.Open("sftp://test:tiger@localhost:9922/?host_key=" + encodedKey)
 	if err != nil {
 		t.Fatal(err)
 	}

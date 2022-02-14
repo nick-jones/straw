@@ -14,23 +14,46 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-	"github.com/uw-labs/straw"
+
+	"github.com/nick-jones/straw"
 )
 
 var _ straw.StreamStore = &s3StreamStore{}
 
 func init() {
 	straw.Register("s3", func(u *url.URL) (straw.StreamStore, error) {
-		return news3StreamStore(u.Host, u.Query().Get("sse"))
+		return news3StreamStore(
+			u.Host,
+			u.Query().Get("endpoint-url"),
+			u.Query().Get("storage-class"),
+			u.Query().Get("sse"),
+		)
 	})
 }
 
-func news3StreamStore(bucket string, sseType string) (*s3StreamStore, error) {
+func news3StreamStore(bucket, endpointURL, storageClass, sseType string) (*s3StreamStore, error) {
+	var endpointResolver endpoints.Resolver
+	if endpointURL != "" {
+		defaultResolver := endpoints.DefaultResolver()
+		endpointResolver = endpoints.ResolverFunc(func(service, region string, optFns ...func(*endpoints.Options)) (endpoints.ResolvedEndpoint, error) {
+			if service == "s3" {
+				return endpoints.ResolvedEndpoint{
+					URL: endpointURL,
+				}, nil
+			}
+			return defaultResolver.EndpointFor(service, region, optFns...)
+		})
+	}
+
 	sess, err := session.NewSessionWithOptions(
 		session.Options{
+			Config: aws.Config{
+				EndpointResolver: endpointResolver,
+			},
 			SharedConfigState: session.SharedConfigEnable,
 		},
 	)
@@ -41,20 +64,22 @@ func news3StreamStore(bucket string, sseType string) (*s3StreamStore, error) {
 	svc := s3.New(sess)
 
 	ss := &s3StreamStore{
-		sess:    sess,
-		s3:      svc,
-		bucket:  bucket,
-		sseType: sseType,
+		sess:         sess,
+		s3:           svc,
+		bucket:       bucket,
+		storageClass: storageClass,
+		sseType:      sseType,
 	}
 
 	return ss, nil
 }
 
 type s3StreamStore struct {
-	sess    *session.Session
-	s3      *s3.S3
-	bucket  string
-	sseType string
+	sess         *session.Session
+	s3           *s3.S3
+	bucket       string
+	storageClass string
+	sseType      string
 }
 
 func (fs *s3StreamStore) Close() error {
@@ -290,6 +315,9 @@ func (fs *s3StreamStore) Mkdir(name string, mode os.FileMode) error {
 		ContentType: aws.String("application/x-directory"),
 	}
 
+	if fs.storageClass != "" {
+		input.StorageClass = aws.String(fs.storageClass)
+	}
 	if fs.sseType != "" {
 		input.ServerSideEncryption = aws.String(fs.sseType)
 	}
@@ -359,6 +387,9 @@ func (fs *s3StreamStore) CreateWriteCloser(name string) (straw.StrawWriter, erro
 		Bucket: aws.String(fs.bucket),
 	}
 
+	if fs.storageClass != "" {
+		input.StorageClass = aws.String(fs.storageClass)
+	}
 	if fs.sseType != "" {
 		input.ServerSideEncryption = aws.String(fs.sseType)
 	}

@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/uw-labs/straw"
+	"github.com/nick-jones/straw"
 )
 
 var _ straw.StreamStore = &TestLogStreamStore{}
